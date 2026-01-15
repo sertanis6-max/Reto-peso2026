@@ -3,50 +3,42 @@ import pandas as pd
 import plotly.express as px
 from datetime import datetime
 
-# Configuración de la página
+# --- CONFIGURACIÓN DE GOOGLE SHEETS ---
+# Sustituye esto por la URL de tu hoja (asegúrate de que termine en /export?format=csv)
+SHEET_ID = "TU_ID_DE_LA_HOJA" # Ver nota abajo
+URL_HOJA = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/gviz/tq?tqx=out:csv"
+
 st.set_page_config(page_title="Reto de Peso 2026", layout="wide")
 
-st.title("🏆 Reto Semanal: ¿Quién pierde más?")
-st.subheader("Del 18 de Feb al 4 de Mayo")
+st.title("🏆 Reto: ¿Quién pierde más?")
+st.write("Reto: 18 Feb - 4 May")
 
-# --- LÓGICA DE DATOS ---
-# En una app real, usaríamos una base de datos. 
-# Para este ejemplo, simulamos los datos de entrada.
-if 'datos' not in st.session_state:
-    st.session_state.datos = pd.DataFrame(columns=['Fecha', 'Jugador', 'Peso'])
+# --- FUNCIONES PARA DATOS ---
+def leer_datos():
+    try:
+        # Aquí usamos pandas para leer la hoja pública
+        return pd.read_csv(URL_HOJA)
+    except:
+        return pd.DataFrame(columns=['Fecha', 'Jugador', 'Peso'])
 
-# --- ENTRADA DE DATOS ---
+# --- INTERFAZ ---
+datos = leer_datos()
+
 with st.sidebar:
     st.header("Registrar Peso")
-    fecha = st.date_input("Fecha del lunes", datetime(2026, 2, 23)) # Primer lunes tras inicio
+    fecha = st.date_input("Fecha del lunes", datetime.now())
     jugador = st.selectbox("Jugador", ["Jugador 1", "Jugador 2"])
     peso = st.number_input("Peso actual (kg)", format="%.2f")
     
     if st.button("Guardar Registro"):
-        nuevo_registro = pd.DataFrame([[fecha, jugador, peso]], columns=['Fecha', 'Jugador', 'Peso'])
-        st.session_state.datos = pd.concat([st.session_state.datos, nuevo_registro]).drop_duplicates()
-        st.success("¡Registrado!")
+        # NOTA: Para escribir en Google Sheets de forma sencilla 
+        # lo ideal es usar la librería 'gsheetsdb' o enviar por URL.
+        # Por ahora, este botón te mostrará el mensaje:
+        st.warning("Para guardar datos automáticamente, necesitamos configurar 'Streamlit Secrets'.")
 
-# --- CÁLCULO DE PUNTOS ---
-# Aquí iría la lógica que compara el peso de la semana actual vs la anterior
-# y otorga 1 punto al que tenga la diferencia negativa más grande.
-
-# --- VISUALIZACIÓN ---
-col1, col2 = st.columns(2)
-
-with col1:
-    st.write("### Evolución del Peso")
-    if not st.session_state.datos.empty:
-        fig = px.line(st.session_state.datos, x="Fecha", y="Peso", color="Jugador", markers=True)
-        st.plotly_chart(fig, use_container_width=True)
-    else:
-        st.info("Aún no hay datos registrados.")
-
-with col2:
-    st.write("### Marcador de Puntos")
-    # Tabla resumen de puntos
-    puntuacion = {"Jugador 1": 0, "Jugador 2": 0}
-    st.table(pd.DataFrame.from_dict(puntuacion, orient='index', columns=['Puntos']))
-
-st.divider()
-st.info("Nota: El reto finaliza el 4 de mayo. ¡Dale con todo!
+# --- GRÁFICAS ---
+if not datos.empty:
+    fig = px.line(datos, x="Fecha", y="Peso", color="Jugador", title="Evolución Semanal")
+    st.plotly_chart(fig)
+else:
+    st.info("Conecta tu hoja de cálculo para ver las gráficas.")
