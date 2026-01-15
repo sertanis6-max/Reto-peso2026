@@ -1,44 +1,37 @@
 import streamlit as st
+from streamlit_gsheets import GSheetsConnection
 import pandas as pd
-import plotly.express as px
-from datetime import datetime
-
-# --- CONFIGURACIÓN DE GOOGLE SHEETS ---
-# Sustituye esto por la URL de tu hoja (asegúrate de que termine en /export?format=csv)
-SHEET_ID = "TU_ID_DE_LA_HOJA" # Ver nota abajo
-URL_HOJA = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/gviz/tq?tqx=out:csv"
 
 st.set_page_config(page_title="Reto de Peso 2026", layout="wide")
 
-st.title("🏆 Reto: ¿Quién pierde más?")
-st.write("Reto: 18 Feb - 4 May")
+st.title("🏆 Reto de Peso: 18 Feb - 4 May")
 
-# --- FUNCIONES PARA DATOS ---
-def leer_datos():
-    try:
-        # Aquí usamos pandas para leer la hoja pública
-        return pd.read_csv(URL_HOJA)
-    except:
-        return pd.DataFrame(columns=['Fecha', 'Jugador', 'Peso'])
+# Conexión con Google Sheets
+conn = st.connection("gsheets", type=GSheetsConnection)
 
-# --- INTERFAZ ---
-datos = leer_datos()
+# Leer datos existentes
+df = conn.read(ttl="0") # ttl="0" para que refresque al instante
 
+# Formulario de entrada
 with st.sidebar:
     st.header("Registrar Peso")
-    fecha = st.date_input("Fecha del lunes", datetime.now())
-    jugador = st.selectbox("Jugador", ["Jugador 1", "Jugador 2"])
-    peso = st.number_input("Peso actual (kg)", format="%.2f")
-    
-    if st.button("Guardar Registro"):
-        # NOTA: Para escribir en Google Sheets de forma sencilla 
-        # lo ideal es usar la librería 'gsheetsdb' o enviar por URL.
-        # Por ahora, este botón te mostrará el mensaje:
-        st.warning("Para guardar datos automáticamente, necesitamos configurar 'Streamlit Secrets'.")
+    with st.form(key="peso_form"):
+        fecha = st.date_input("Fecha del lunes")
+        jugador = st.selectbox("Jugador", ["Jugador 1", "Jugador 2"])
+        peso = st.number_input("Peso (kg)", min_value=30.0, max_value=200.0, step=0.1)
+        submit_button = st.form_submit_button(label="Guardar Peso")
 
-# --- GRÁFICAS ---
-if not datos.empty:
-    fig = px.line(datos, x="Fecha", y="Peso", color="Jugador", title="Evolución Semanal")
-    st.plotly_chart(fig)
+    if submit_button:
+        nuevo_dato = pd.DataFrame([{"Fecha": str(fecha), "Jugador": jugador, "Peso": peso}])
+        df = pd.concat([df, nuevo_dato], ignore_index=True)
+        conn.update(data=df)
+        st.success("¡Peso guardado correctamente!")
+        st.rerun()
+
+# Mostrar Gráfica
+if not df.empty:
+    st.subheader("Evolución Semanal")
+    st.line_chart(df, x="Fecha", y="Peso", color="Jugador")
 else:
-    st.info("Conecta tu hoja de cálculo para ver las gráficas.")
+    st.info("Aún no hay datos. Registra tu primer peso en el menú lateral.")
+
